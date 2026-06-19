@@ -1,47 +1,98 @@
 package com.IC.zohotaskswidget
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import com.IC.zohotaskswidget.ui.theme.ZohoTasksWidgetTheme
+import com.IC.zohotaskswidget.utils.Constants
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Handle OAuth callback if app was opened by Zoho
+        handleOAuthIntent(intent)
+
         enableEdgeToEdge()
+
         setContent {
             ZohoTasksWidgetTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                LoginScreen {
+                    openZohoLogin()
                 }
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+
+        handleOAuthIntent(intent)
+    }
+
+    private fun handleOAuthIntent(intent: Intent?) {
+
+        intent?.data?.let { uri ->
+
+            val authCode = uri.getQueryParameter("code")
+
+            if (authCode != null) {
+                Log.d("ZOHO_AUTH", "Authorization Code: $authCode")
+            }
+        }
+    }
+
+    private fun openZohoLogin() {
+
+        val url =
+            "${Constants.ACCOUNTS_BASE_URL}/oauth/v2/auth" +
+                    "?scope=ZohoCRM.modules.tasks.ALL" +
+                    "&client_id=${Constants.CLIENT_ID}" +
+                    "&response_type=code" +
+                    "&access_type=offline" +
+                    "&redirect_uri=${Constants.REDIRECT_URI}"
+
+        startActivity(
+            Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse(url)
+            )
+        )
+    }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+fun LoginScreen(onLoginClick: () -> Unit) {
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    ZohoTasksWidgetTheme {
-        Greeting("Android")
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+
+        Text(
+            text = "Zoho CRM Tasks Widget",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Button(
+            onClick = onLoginClick
+        ) {
+            Text("Login with Zoho")
+        }
     }
 }
