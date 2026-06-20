@@ -30,7 +30,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:scheme="com.ic.zohotaskwidget"
+                    android:scheme="com.ic.zohotaskswidget"
                     android:host="oauth" />
             </intent-filter>
 

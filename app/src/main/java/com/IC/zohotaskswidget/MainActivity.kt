@@ -46,9 +46,15 @@ class MainActivity : ComponentActivity() {
 
     private fun handleOAuthIntent(intent: Intent?) {
 
-        intent?.data?.let { uri ->
+        val uri = intent?.data
 
-            val authCode = uri.getQueryParameter("code")
+        Log.d("ZOHO_CALLBACK", "URI = $uri")
+
+        uri?.let {
+
+            val authCode = it.getQueryParameter("code")
+
+            Log.d("ZOHO_CALLBACK", "CODE = $authCode")
 
             if (authCode != null) {
                 Log.d("ZOHO_AUTH", "Authorization Code: $authCode")
@@ -57,15 +63,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openZohoLogin() {
-
         val url =
             "${Constants.ACCOUNTS_BASE_URL}/oauth/v2/auth" +
-                    "?scope=ZohoCRM.modules.tasks.ALL" +
+                    "?scope=ZohoCRM.modules.ALL,offline_access" +
                     "&client_id=${Constants.CLIENT_ID}" +
                     "&response_type=code" +
                     "&access_type=offline" +
                     "&redirect_uri=${Constants.REDIRECT_URI}"
-
+        Log.d("ZOHO_URL", url)
         startActivity(
             Intent(
                 Intent.ACTION_VIEW,
