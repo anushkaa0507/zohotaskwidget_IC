@@ -1,6 +1,5 @@
-// File: app/src/main/java/com/IC/zohotaskswidget/MainActivity.kt
-
 package com.IC.zohotaskswidget
+
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.text.style.TextAlign
 import android.content.Intent
@@ -11,16 +10,22 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.IC.zohotaskswidget.api.RetrofitClient
 import com.IC.zohotaskswidget.api.TaskData
@@ -31,10 +36,6 @@ import com.IC.zohotaskswidget.ui.theme.ZohoTasksWidgetTheme
 import com.IC.zohotaskswidget.utils.Constants
 import kotlinx.coroutines.launch
 
-/**
- * Main activity for the Zoho Tasks Widget application.
- * Handles OAuth login flow, task display, and task management.
- */
 class MainActivity : ComponentActivity() {
 
     companion object {
@@ -48,13 +49,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize token manager and repositories
         tokenManager = TokenManager(this)
         RetrofitClient.initialize(this)
         authRepository = AuthRepository(tokenManager)
-        taskRepository = TaskRepository(tokenManager, authRepository)
+        taskRepository = TaskRepository(tokenManager = tokenManager, authRepository = authRepository)
 
-        // Handle OAuth callback if app was opened by Zoho
         handleOAuthIntent(intent)
 
         enableEdgeToEdge()
@@ -66,7 +65,12 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     if (authRepository.isAuthenticated()) {
-                        TasksScreen(taskRepository, authRepository)
+                        TasksScreen(
+                            taskRepository = taskRepository,
+                            authRepository = authRepository,
+                            onShowError = { showError(it) },
+                            onShowSuccess = { showSuccess(it) }
+                        )
                     } else {
                         LoginScreen { openZohoLogin() }
                     }
@@ -80,10 +84,6 @@ class MainActivity : ComponentActivity() {
         handleOAuthIntent(intent)
     }
 
-    /**
-     * Handle OAuth callback from Zoho.
-     * Extracts authorization code and exchanges it for access token.
-     */
     private fun handleOAuthIntent(intent: Intent?) {
         val uri = intent?.data
         Log.d(TAG, "URI = $uri")
@@ -97,12 +97,10 @@ class MainActivity : ComponentActivity() {
 
             when {
                 authCode != null -> {
-                    // Valid authorization code received
                     Log.d(TAG, "Authorization code received, exchanging for access token...")
                     exchangeCodeForToken(authCode)
                 }
                 error != null -> {
-                    // OAuth error occurred
                     Log.e(TAG, "OAuth error: $error - $errorDescription")
                     showError("Authentication failed: $errorDescription")
                 }
@@ -113,9 +111,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Exchange authorization code for access token.
-     */
     private fun exchangeCodeForToken(authCode: String) {
         lifecycleScope.launch {
             try {
@@ -129,8 +124,6 @@ class MainActivity : ComponentActivity() {
                     Log.d(TAG, "API Domain: ${tokenResponse.apiDomain}")
 
                     showSuccess("Successfully logged in!")
-
-                    // Refresh UI to show tasks screen
                     recreate()
                 }
 
@@ -145,9 +138,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Open Zoho OAuth login page in browser.
-     */
     private fun openZohoLogin() {
         try {
             val url = buildOAuthUrl()
@@ -162,9 +152,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Build complete OAuth URL with all required parameters.
-     */
     private fun buildOAuthUrl(): String {
         return "${Constants.ACCOUNTS_BASE_URL}/oauth/v2/auth" +
                 "?scope=${Constants.OAUTH_SCOPE}" +
@@ -174,24 +161,15 @@ class MainActivity : ComponentActivity() {
                 "&redirect_uri=${Constants.REDIRECT_URI}"
     }
 
-    /**
-     * Show error message to user.
-     */
     private fun showError(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
-    /**
-     * Show success message to user.
-     */
     private fun showSuccess(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }
 
-/**
- * Login screen UI component.
- */
 @Composable
 fun LoginScreen(onLoginClick: () -> Unit) {
     Column(
@@ -236,18 +214,21 @@ fun LoginScreen(onLoginClick: () -> Unit) {
     }
 }
 
-/**
- * Tasks display screen UI component.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TasksScreen(taskRepository: TaskRepository, authRepository: AuthRepository) {
+fun TasksScreen(
+    taskRepository: TaskRepository,
+    authRepository: AuthRepository,
+    onShowError: (String) -> Unit,
+    onShowSuccess: (String) -> Unit
+) {
+    val coroutineScope = rememberCoroutineScope()
     var tasks by remember { mutableStateOf<List<TaskData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedFilter by remember { mutableStateOf("pending") }
+    var showAddTaskDialog by remember { mutableStateOf(false) }
 
-    // Load tasks on composition
     LaunchedEffect(selectedFilter) {
         isLoading = true
         error = null
@@ -277,13 +258,20 @@ fun TasksScreen(taskRepository: TaskRepository, authRepository: AuthRepository) 
                 title = { Text("Zoho Tasks") },
                 actions = {
                     IconButton(onClick = {
-                        // Refresh tasks
                         isLoading = true
                     }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAddTaskDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Task")
+            }
         }
     ) { paddingValues ->
         Column(
@@ -291,7 +279,6 @@ fun TasksScreen(taskRepository: TaskRepository, authRepository: AuthRepository) 
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Filter buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -309,7 +296,6 @@ fun TasksScreen(taskRepository: TaskRepository, authRepository: AuthRepository) 
                 }
             }
 
-            // Tasks list or loading/error state
             when {
                 isLoading -> {
                     Box(
@@ -352,22 +338,41 @@ fun TasksScreen(taskRepository: TaskRepository, authRepository: AuthRepository) 
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        contentPadding = PaddingValues(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(tasks) { task ->
-                            TaskCard(task)
+                            GlowingTaskCard(task)
                         }
                     }
                 }
             }
         }
     }
+
+    if (showAddTaskDialog) {
+        AddTaskDialog(
+            onDismiss = { showAddTaskDialog = false },
+            onAddTask = { subject, priority, dueDate ->
+                coroutineScope.launch {
+                    try {
+                        val result = taskRepository.createTask(subject, priority, dueDate)
+                        result.onSuccess {
+                            onShowSuccess("Task created!")
+                            showAddTaskDialog = false
+                        }
+                        result.onFailure { exception ->
+                            onShowError("Failed to create task: ${exception.message}")
+                        }
+                    } catch (e: Exception) {
+                        onShowError("Error: ${e.message}")
+                    }
+                }
+            }
+        )
+    }
 }
 
-/**
- * Filter button UI component.
- */
 @Composable
 fun FilterButton(label: String, isSelected: Boolean, onClick: () -> Unit) {
     Button(
@@ -384,64 +389,190 @@ fun FilterButton(label: String, isSelected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/**
- * Task card UI component.
- */
 @Composable
-fun TaskCard(task: TaskData) {
+fun GlowingTaskCard(task: TaskData) {
+    val priorityColor = when (task.priority?.lowercase()) {
+        "high" -> Color(0xFFFF6B6B)
+        "medium" -> Color(0xFFFFA502)
+        "low" -> Color(0xFF51CF66)
+        else -> Color(0xFF4A90E2)
+    }
+
+    val glowColor = priorityColor.copy(alpha = 0.3f)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(4.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(12.dp),
+                clip = false
+            )
+            .background(
+                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                    colors = listOf(glowColor, Color.Transparent),
+                    radius = 200f
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = task.subject ?: "Untitled",
-                style = MaterialTheme.typography.titleMedium
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .background(
+                        color = priorityColor,
+                        shape = RoundedCornerShape(2.dp)
+                    )
             )
 
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(start = 12.dp)
             ) {
-                if (task.priority != null) {
-                    Label("Priority: ${task.priority}")
-                }
-                if (task.status != null) {
-                    Label("Status: ${task.status}")
-                }
-            }
-
-            if (task.dueDate != null) {
                 Text(
-                    text = "Due: ${task.dueDate}",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 8.dp)
+                    text = task.subject ?: "Untitled",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (task.priority != null) {
+                        PriorityLabel(task.priority, priorityColor)
+                    }
+                    if (task.status != null) {
+                        StatusLabel(task.status)
+                    }
+                }
+
+                if (task.dueDate != null) {
+                    Text(
+                        text = "Due: ${task.dueDate}",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
 }
 
-/**
- * Label UI component.
- */
 @Composable
-fun Label(text: String) {
+fun PriorityLabel(priority: String, color: Color) {
     Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = MaterialTheme.shapes.small
+        color = color.copy(alpha = 0.2f),
+        shape = RoundedCornerShape(6.dp)
     ) {
         Text(
-            text = text,
+            text = priority.uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(4.dp, 2.dp)
+            modifier = Modifier.padding(6.dp, 4.dp),
+            color = color
         )
     }
+}
+
+@Composable
+fun StatusLabel(status: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = RoundedCornerShape(6.dp)
+    ) {
+        Text(
+            text = status,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(6.dp, 4.dp),
+            color = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    }
+}
+
+@Composable
+fun AddTaskDialog(onDismiss: () -> Unit, onAddTask: (String, String, String) -> Unit) {
+    var subject by remember { mutableStateOf("") }
+    var priority by remember { mutableStateOf("Medium") }
+    var dueDate by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New Task") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = subject,
+                    onValueChange = { subject = it },
+                    label = { Text("Task Subject") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                )
+
+                Text("Priority", style = MaterialTheme.typography.labelMedium)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("High", "Medium", "Low").forEach { p ->
+                        Button(
+                            onClick = { priority = p },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (priority == p)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Text(p, fontSize = 12.sp)
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = dueDate,
+                    onValueChange = { dueDate = it },
+                    label = { Text("Due Date (YYYY-MM-DD)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (subject.isNotBlank()) {
+                    onAddTask(subject, priority, dueDate)
+                }
+            }) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

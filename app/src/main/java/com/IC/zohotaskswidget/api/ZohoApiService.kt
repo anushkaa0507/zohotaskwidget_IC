@@ -46,6 +46,12 @@ interface ZohoApiService {
         @Query("fields") fields: String = "Subject,Status,Due_Date,Priority"
     ): Response<TaskDetailsResponse>
 
+    @POST("Tasks")
+    suspend fun createTask(
+        @Header("Authorization") authorization: String,
+        @Body taskData: CreateTaskRequest
+    ): Response<TaskListResponse>
+
     @PUT("Tasks")
     suspend fun updateTask(
         @Header("Authorization") authorization: String,

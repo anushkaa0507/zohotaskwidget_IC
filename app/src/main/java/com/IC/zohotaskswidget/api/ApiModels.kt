@@ -1,15 +1,7 @@
-// File: app/src/main/java/com/IC/zohotaskswidget/api/ApiModels.kt
-
 package com.IC.zohotaskswidget.api
 
 import com.google.gson.annotations.SerializedName
 
-// ========== OAUTH MODELS ==========
-
-/**
- * Response model for OAuth token generation.
- * Returned after successful authorization code exchange.
- */
 data class TokenResponse(
     @SerializedName("access_token")
     val accessToken: String,
@@ -30,9 +22,6 @@ data class TokenResponse(
     val scope: String?
 )
 
-/**
- * Error response model for API failures.
- */
 data class ErrorResponse(
     @SerializedName("code")
     val code: Int?,
@@ -44,11 +33,6 @@ data class ErrorResponse(
     val status: String?
 )
 
-// ========== TASK MODELS ==========
-
-/**
- * Response wrapper for task list API calls.
- */
 data class TaskListResponse(
     @SerializedName("data")
     val data: List<TaskData>?,
@@ -60,9 +44,6 @@ data class TaskListResponse(
     val code: Int?
 )
 
-/**
- * Individual task data model.
- */
 data class TaskData(
     @SerializedName("id")
     val id: String,
@@ -91,9 +72,7 @@ data class TaskData(
     @SerializedName("\$se_module")
     val module: String?
 )
-/**
- * Task owner information.
- */
+
 data class OwnerInfo(
     @SerializedName("id")
     val id: String?,
@@ -102,9 +81,6 @@ data class OwnerInfo(
     val name: String?
 )
 
-/**
- * Response information metadata.
- */
 data class ResponseInfo(
     @SerializedName("per_page")
     val perPage: Int?,
@@ -119,9 +95,6 @@ data class ResponseInfo(
     val hasMore: Boolean?
 )
 
-/**
- * Single task details response.
- */
 data class TaskDetailsResponse(
     @SerializedName("data")
     val data: List<TaskData>?,
@@ -130,17 +103,11 @@ data class TaskDetailsResponse(
     val code: Int?
 )
 
-/**
- * Request model for updating task status.
- */
 data class UpdateTaskRequest(
     @SerializedName("data")
     val data: List<UpdateTaskData>
 )
 
-/**
- * Task data for update operations.
- */
 data class UpdateTaskData(
     @SerializedName("id")
     val id: String,
@@ -149,11 +116,25 @@ data class UpdateTaskData(
     val status: String
 )
 
-// ========== USER MODELS ==========
+data class CreateTaskRequest(
+    @SerializedName("data")
+    val data: List<CreateTaskData>
+)
 
-/**
- * User profile information response.
- */
+data class CreateTaskData(
+    @SerializedName("Subject")
+    val subject: String,
+
+    @SerializedName("Priority")
+    val priority: String? = null,
+
+    @SerializedName("Due_Date")
+    val dueDate: String? = null,
+
+    @SerializedName("Status")
+    val status: String? = "Not Started"
+)
+
 data class UserProfileResponse(
     @SerializedName("users")
     val users: List<UserData>?,
@@ -162,9 +143,6 @@ data class UserProfileResponse(
     val code: Int?
 )
 
-/**
- * Individual user data.
- */
 data class UserData(
     @SerializedName("id")
     val id: String,

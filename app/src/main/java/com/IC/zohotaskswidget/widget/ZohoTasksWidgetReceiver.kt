@@ -4,5 +4,5 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 
 class ZohoTasksWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = `ZohoTasksWidget.kt`()
+    override val glanceAppWidget: GlanceAppWidget = ZohoTasksWidget()
 }
